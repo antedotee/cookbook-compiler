@@ -26,13 +26,24 @@ Run the tests with `.venv/bin/python -m pytest`.
 ## The language
 
 ```
-recipe = "RECIPE" WORD ";" { step ";" } EOF ;
-step   = "ADD" "(" NUMBER "," WORD "," WORD ")"
-       | ("MIX" | "BOIL" | "BAKE") "(" NUMBER "," WORD ")"
-       | "SERVE" ;
-NUMBER = digit { digit } [ "." digit { digit } ] ;
-WORD   = letter { letter | digit | "_" } ;
+recipe     = "RECIPE" IDENTIFIER ";" { step ";" } EOF ;
+step       = "ADD" "(" CONSTANT "," IDENTIFIER "," IDENTIFIER ")"
+           | ("MIX" | "BOIL" | "BAKE") "(" CONSTANT "," IDENTIFIER ")"
+           | "SERVE" ;
+CONSTANT   = digit { digit } [ "." digit { digit } ] ;
+IDENTIFIER = letter { letter | digit | "_" } ;   (any name that is not a keyword)
 ```
+
+The lexer sorts every token into one of four classes, the same ones the C standard uses.
+
+| Class | Tokens |
+|---|---|
+| Keyword | RECIPE, ADD, MIX, BOIL, BAKE, SERVE |
+| Identifier | dish, unit, and ingredient names such as CAKE, CUP, FLOUR |
+| Constant | numbers such as 2 or 0.5 |
+| Punctuator | `(` `)` `,` `;` |
+
+Identifiers are not checked against the vocabulary until semantic analysis, just as a C lexer does not know whether a variable was declared. That is why a misspelling such as FLOWER is a phase 3 error with a "did you mean FLOUR?" hint, not a phase 1 error.
 
 Keywords are not case-sensitive. A `#` starts a comment that runs to the end of the line.
 
@@ -57,7 +68,7 @@ Each dish has a fixed order. Ingredients within one group can come in any order,
 
 | Phase | File | Output | Example error |
 |---|---|---|---|
-| 1. Lexical analysis | `compiler/lexer.py` | token table | `unexpected character '@'` |
+| 1. Lexical analysis | `compiler/lexer.py` | token table with each token's class | `unexpected character '@'` |
 | 2. Syntax analysis | `compiler/parser.py` | parse tree | `expected ';' after the BOIL step on line 4` |
 | 3. Semantic analysis | `compiler/semantic.py` | rule checklist and symbol table | `EGG is measured in PIECE, not CUP` |
 | 4. Intermediate code | `compiler/ir.py` | `t1 = add FLOUR, 1 CUP` | |

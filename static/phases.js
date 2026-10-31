@@ -1,7 +1,7 @@
 // Renders one phase's output into the main panel, and says which source lines it covers.
 const Phases = (() => {
   const ABOUT = {
-    lexer: 'The lexer reads characters and groups them into tokens. It skips spaces and # comments, and stops at the first character it does not know.',
+    lexer: 'The lexer reads characters and groups them into tokens, each a keyword, identifier, constant, or punctuator. It skips spaces and # comments, and stops at the first character it does not know.',
     parser: 'The parser checks the tokens against the grammar and builds a parse tree. It stops at the first rule that does not match.',
     semantic: 'Semantic analysis checks meaning against the kitchen rules: known names, sensible units and amounts, and the dish\'s order. It reports every problem it finds.',
     ir: 'Intermediate code turns each step into one simple instruction, still in the units the recipe used.',
@@ -26,8 +26,16 @@ const Phases = (() => {
   }
 
   const render = {
-    lexer: (out) => table(['#', 'Kind', 'Text', 'Line', 'Col'],
-      out.tokens.map((t, i) => [i + 1, t.kind, t.text || '(end)', t.line, t.col])),
+    lexer: (out) => {
+      const classes = ['KEYWORD', 'IDENTIFIER', 'CONSTANT', 'PUNCTUATOR'];
+      const count = (kind) => out.tokens.filter((t) => t.kind === kind).length;
+      return el('div', {},
+        el('h3', {}, 'Token count'),
+        table(classes.map((c) => c.toLowerCase()), [classes.map(count)]),
+        el('h3', {}, 'Tokens'),
+        table(['#', 'Lexeme', 'Token class', 'Line', 'Col'],
+          out.tokens.map((t, i) => [i + 1, t.text || '(end)', t.kind, t.line, t.col])));
+    },
 
     parser: (out) => el('div', { class: 'tree-wrap' }, drawTree(out.tree)),
 

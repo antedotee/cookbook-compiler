@@ -1,9 +1,17 @@
-"""Phase 1: lexical analysis. Turns source text into tokens."""
+"""Phase 1: lexical analysis. Turns source text into tokens of four classes:
+
+    KEYWORD     RECIPE ADD MIX BOIL BAKE SERVE
+    IDENTIFIER  letter { letter | digit | "_" }, not a keyword (dish, unit, and ingredient names)
+    CONSTANT    digit { digit } [ "." digit { digit } ]
+    PUNCTUATOR  ( ) , ;
+
+The end of input is marked with an EOF token.
+"""
 
 from .model import CompileError, Span, Token
 
 KEYWORDS = {"RECIPE", "ADD", "MIX", "BOIL", "BAKE", "SERVE"}
-PUNCTUATION = {"(": "LPAREN", ")": "RPAREN", ",": "COMMA", ";": "SEMI"}
+PUNCTUATORS = {"(", ")", ",", ";"}
 
 
 def lex(source: str) -> list[Token]:
@@ -25,17 +33,17 @@ def lex(source: str) -> list[Token]:
             continue
 
         start = i
-        if ch in PUNCTUATION:
-            tokens.append(Token(PUNCTUATION[ch], ch, Span(line, col, 1)))
+        if ch in PUNCTUATORS:
+            tokens.append(Token("PUNCTUATOR", ch, Span(line, col, 1)))
             i += 1
         elif _digit(ch):
             i = _scan_number(source, i, line, col)
-            tokens.append(Token("NUMBER", source[start:i], Span(line, col, i - start)))
+            tokens.append(Token("CONSTANT", source[start:i], Span(line, col, i - start)))
         elif _letter(ch):
             while i < len(source) and _word_char(source[i]):
                 i += 1
             text = source[start:i].upper()
-            kind = "KEYWORD" if text in KEYWORDS else "WORD"
+            kind = "KEYWORD" if text in KEYWORDS else "IDENTIFIER"
             tokens.append(Token(kind, text, Span(line, col, i - start)))
         else:
             raise CompileError(f"unexpected character '{ch}'", Span(line, col, 1))

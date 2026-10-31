@@ -1,8 +1,8 @@
 """Phase 2: syntax analysis. A recursive-descent parser for this grammar:
 
-    recipe = "RECIPE" WORD ";" { step ";" } EOF ;
-    step   = "ADD" "(" NUMBER "," WORD "," WORD ")"
-           | ("MIX" | "BOIL" | "BAKE") "(" NUMBER "," WORD ")"
+    recipe = "RECIPE" IDENTIFIER ";" { step ";" } EOF ;
+    step   = "ADD" "(" CONSTANT "," IDENTIFIER "," IDENTIFIER ")"
+           | ("MIX" | "BOIL" | "BAKE") "(" CONSTANT "," IDENTIFIER ")"
            | "SERVE" ;
 """
 
@@ -35,9 +35,13 @@ class _Parser:
             self.pos += 1
         return token
 
-    def expect(self, kind: str, message: str) -> Token:
+    def at(self, punctuator: str) -> bool:
         token = self.peek()
-        if token.kind != kind:
+        return token.kind == "PUNCTUATOR" and token.text == punctuator
+
+    def expect(self, kind: str, message: str, text: str | None = None) -> Token:
+        token = self.peek()
+        if token.kind != kind or (text is not None and token.text != text):
             raise CompileError(f"{message}, but found {_describe(token)}", token.span)
         return self.advance()
 
@@ -46,7 +50,7 @@ class _Parser:
         if not (first.kind == "KEYWORD" and first.text == "RECIPE"):
             raise CompileError(f"a recipe must start with 'RECIPE <dish>;', but found {_describe(first)}", first.span)
         self.advance()
-        dish = self.expect("WORD", "expected a dish name after RECIPE")
+        dish = self.expect("IDENTIFIER", "expected a dish name (an identifier) after RECIPE")
         self.expect_semicolon(f"'RECIPE {dish.text}'")
 
         steps: list[Step] = []
@@ -58,7 +62,7 @@ class _Parser:
 
     def expect_semicolon(self, after: str) -> None:
         """Report a missing ';' at the end of the previous token, where the user has to type it."""
-        if self.peek().kind == "SEMI":
+        if self.at(";"):
             self.advance()
             return
         last = self.tokens[self.pos - 1]
@@ -76,7 +80,7 @@ class _Parser:
         self.advance()
 
         if token.text == "SERVE":
-            if self.peek().kind == "LPAREN":
+            if self.at("("):
                 raise CompileError("SERVE takes no arguments, write 'SERVE;'", self.peek().span)
             return ServeStep(token.span)
 
@@ -91,19 +95,19 @@ class _Parser:
         """Parse '(' arg {',' arg} ')' and check the count and kind of each argument against ARGUMENTS."""
         names = ARGUMENTS[verb.text]
         usage = f"{verb.text} needs {len(names)} arguments: {', '.join(names)}"
-        self.expect("LPAREN", f"expected '(' after {verb.text} ({usage})")
+        self.expect("PUNCTUATOR", f"expected '(' after {verb.text} ({usage})", "(")
 
         found: list[Token] = []
-        if self.peek().kind != "RPAREN":
+        if not self.at(")"):
             while True:
                 token = self.peek()
-                if token.kind not in ("NUMBER", "WORD"):
+                if token.kind not in ("CONSTANT", "IDENTIFIER"):
                     raise CompileError(f"expected a value in {verb.text}(...), but found {_describe(token)}", token.span)
                 found.append(self.advance())
-                if self.peek().kind == "COMMA":
+                if self.at(","):
                     self.advance()
                     continue
-                if self.peek().kind == "RPAREN":
+                if self.at(")"):
                     break
                 raise CompileError(f"expected ',' or ')' in {verb.text}(...), but found {_describe(self.peek())}", self.peek().span)
         close = self.advance()
@@ -116,10 +120,10 @@ class _Parser:
         args = []
         for index, (name, token) in enumerate(zip(names, found)):
             wants_number = index == 0
-            if wants_number and token.kind != "NUMBER":
+            if wants_number and token.kind != "CONSTANT":
                 raise CompileError(f"the {name} in {verb.text} must be a number, but found '{token.text}'", token.span)
-            if not wants_number and token.kind != "WORD":
-                raise CompileError(f"the {name} in {verb.text} must be a name, but found '{token.text}'", token.span)
+            if not wants_number and token.kind != "IDENTIFIER":
+                raise CompileError(f"the {name} in {verb.text} must be an identifier, but found '{token.text}'", token.span)
             args.append(Number(float(token.text), token.text, token.span) if wants_number else Name(token.text, token.span))
         return args
 

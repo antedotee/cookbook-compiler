@@ -11,8 +11,8 @@ def kinds_and_text(source):
 
 def test_tokens_for_a_step():
     assert kinds_and_text("ADD(2, CUP, FLOUR);") == [
-        ("KEYWORD", "ADD"), ("LPAREN", "("), ("NUMBER", "2"), ("COMMA", ","), ("WORD", "CUP"),
-        ("COMMA", ","), ("WORD", "FLOUR"), ("RPAREN", ")"), ("SEMI", ";"), ("EOF", ""),
+        ("KEYWORD", "ADD"), ("PUNCTUATOR", "("), ("CONSTANT", "2"), ("PUNCTUATOR", ","), ("IDENTIFIER", "CUP"),
+        ("PUNCTUATOR", ","), ("IDENTIFIER", "FLOUR"), ("PUNCTUATOR", ")"), ("PUNCTUATOR", ";"), ("EOF", ""),
     ]
 
 
@@ -22,12 +22,12 @@ def test_keywords_are_case_insensitive():
 
 def test_decimals_and_positions():
     tokens = lex("RECIPE TEA;\n  ADD(0.5, CUP, MILK);")
-    number = next(t for t in tokens if t.kind == "NUMBER")
+    number = next(t for t in tokens if t.kind == "CONSTANT")
     assert (number.text, number.span.line, number.span.col) == ("0.5", 2, 7)
 
 
 def test_comments_are_skipped():
-    assert kinds_and_text("# a note\nSERVE;") == [("KEYWORD", "SERVE"), ("SEMI", ";"), ("EOF", "")]
+    assert kinds_and_text("# a note\nSERVE;") == [("KEYWORD", "SERVE"), ("PUNCTUATOR", ";"), ("EOF", "")]
 
 
 def test_illegal_character_reports_line_and_column():
@@ -61,3 +61,9 @@ def test_only_ascii_letters_and_digits(text, bad):
 
 def test_superscript_after_digit_is_lexical_error():
     assert errors("RECIPE CAKE; MIX(1², MINUTES);", "lexer") == ["unexpected character '²'"]
+
+
+def test_names_that_are_not_keywords_are_identifiers():
+    assert kinds_and_text("RECIPE cake; add") == [
+        ("KEYWORD", "RECIPE"), ("IDENTIFIER", "CAKE"), ("PUNCTUATOR", ";"), ("KEYWORD", "ADD"), ("EOF", ""),
+    ]

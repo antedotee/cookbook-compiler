@@ -29,7 +29,7 @@ class CompileError(Exception):
 
 @dataclass(frozen=True)
 class Token:
-    kind: str  # KEYWORD, WORD, NUMBER, LPAREN, RPAREN, COMMA, SEMI, EOF
+    kind: str  # KEYWORD, IDENTIFIER, CONSTANT, PUNCTUATOR, EOF
     text: str
     span: Span
 
