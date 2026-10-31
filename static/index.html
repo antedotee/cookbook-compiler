@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Digital Cookbook Compiler</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍰</text></svg>">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Digital Cookbook Compiler</h1>
+    <label class="examples">Example
+      <select id="examples"><option value="">Choose a recipe...</option></select>
+    </label>
+    <button id="compile" class="primary">Compile</button>
+  </header>
+
+  <main class="layout">
+    <section class="left">
+      <div id="blockly" class="blockly" aria-label="Recipe blocks"></div>
+      <div class="editor-head">
+        <span>Recipe text</span>
+        <span id="sync-note" class="sync-note" hidden>
+          Edited by hand, the blocks are out of date.
+          <button id="reset-from-blocks">Reset from blocks</button>
+        </span>
+      </div>
+      <div class="editor">
+        <div id="gutter" class="gutter" aria-hidden="true"></div>
+        <div class="code">
+          <div id="backdrop" class="backdrop" aria-hidden="true"></div>
+          <textarea id="source" spellcheck="false" wrap="off" autocapitalize="off" autocomplete="off"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section class="right">
+      <nav id="tabs" class="tabs"></nav>
+      <div id="panel" class="panel">
+        <p class="hint">Build a recipe from the blocks or type it, then press <b>Compile</b>.</p>
+      </div>
+      <footer class="stepper">
+        <button id="back" disabled>Back</button>
+        <span id="counter"></span>
+        <button id="next" disabled>Next</button>
+      </footer>
+    </section>
+  </main>
+
+  <script src="/static/vendor/blockly/blockly_compressed.js"></script>
+  <script src="/static/vendor/blockly/en.js"></script>
+  <script src="/static/dom.js"></script>
+  <script src="/static/editor.js"></script>
+  <script src="/static/tree.js"></script>
+  <script src="/static/phases.js"></script>
+  <script src="/static/blocks.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,5 +1,8 @@
 """Local web server for the Digital Cookbook Compiler. Run: python app.py, then open http://127.0.0.1:8000"""
 
+import sys
+import threading
+import webbrowser
 from pathlib import Path
 
 from flask import Flask, jsonify, request
@@ -47,5 +50,8 @@ def post_compile():
 
 
 if __name__ == "__main__":
-    print("Digital Cookbook Compiler running at http://127.0.0.1:8000")
+    url = "http://127.0.0.1:8000"
+    if "--open" in sys.argv:
+        threading.Timer(1.0, webbrowser.open, [url]).start()
+    print(f"Digital Cookbook Compiler running at {url}  (Ctrl+C to stop)")
     app.run(host="127.0.0.1", port=8000, debug=False)
