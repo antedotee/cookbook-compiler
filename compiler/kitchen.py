@@ -22,6 +22,7 @@ UNITS: dict[str, tuple[str, int]] = {
 }
 
 WHOLE_UNITS = {"PIECE"}
+MAX_AMOUNT = 1000
 
 COOK_VERBS = ("MIX", "BOIL", "BAKE")
 DURATION_UNIT = "MINUTES"
@@ -53,10 +54,11 @@ def vocab() -> dict:
     """The vocabulary as JSON, used to fill the Blockly dropdowns."""
     return {
         "dishes": list(DISHES),
-        "ingredients": {name: list(units) for name, units in INGREDIENTS.items()},
+        "ingredients": list(INGREDIENTS),
         "units": list(UNITS),
         "cook_verbs": list(COOK_VERBS),
         "duration_unit": DURATION_UNIT,
+        "max_amount": MAX_AMOUNT,
         "min_minutes": MIN_MINUTES,
         "max_minutes": MAX_MINUTES,
     }

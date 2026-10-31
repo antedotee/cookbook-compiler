@@ -40,8 +40,8 @@ def get_examples():
 
 @app.post("/api/compile")
 def post_compile():
-    body = request.get_json(silent=True) or {}
-    source = body.get("source")
+    body = request.get_json(silent=True)
+    source = body.get("source") if isinstance(body, dict) else None
     if not isinstance(source, str):
         return jsonify({"error": "send JSON like {\"source\": \"RECIPE CAKE; ...\"}"}), 400
     if len(source) > MAX_SOURCE:

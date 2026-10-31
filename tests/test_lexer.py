@@ -50,3 +50,14 @@ def test_lexer_error_skips_later_phases():
     assert result["lexer"]["status"] == "error"
     assert all(result[p]["status"] == "skipped" for p in ("parser", "semantic", "ir", "optimizer", "codegen"))
     assert errors("RECIPE CAKE; $", "lexer") == ["unexpected character '$'"]
+
+
+@pytest.mark.parametrize("text, bad", [("ADD(², CUP, FLOUR);", "²"), ("ADD(١٢, CUP, FLOUR);", "١"), ("ſERVE;", "ſ")])
+def test_only_ascii_letters_and_digits(text, bad):
+    with pytest.raises(CompileError) as caught:
+        lex(text)
+    assert caught.value.diagnostic.message == f"unexpected character '{bad}'"
+
+
+def test_superscript_after_digit_is_lexical_error():
+    assert errors("RECIPE CAKE; MIX(1², MINUTES);", "lexer") == ["unexpected character '²'"]

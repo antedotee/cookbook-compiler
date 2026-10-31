@@ -7,7 +7,7 @@ import difflib
 from dataclasses import dataclass
 
 from .kitchen import (
-    DISHES, DURATION_UNIT, INGREDIENTS, MAX_MINUTES, MIN_MINUTES, UNITS, WHOLE_UNITS, Stage,
+    DISHES, DURATION_UNIT, INGREDIENTS, MAX_AMOUNT, MAX_MINUTES, MIN_MINUTES, UNITS, WHOLE_UNITS, Stage,
 )
 from .model import AddStep, Diagnostic, Recipe, ServeStep, Span, TimedStep, fmt_number
 
@@ -54,6 +54,8 @@ def analyze(recipe: Recipe) -> SemanticResult:
             name = step.ingredient.text
             if name not in INGREDIENTS:
                 fail("ingredient", f"unknown ingredient '{name}'{_suggest(name, INGREDIENTS)}", step.ingredient.span)
+                if order:
+                    order.unknown_add()
                 continue
             if name not in dish_ingredients:
                 fail("ingredient", f"{name} does not belong in {dish}", step.ingredient.span)
@@ -93,8 +95,8 @@ def _check_amount(step: AddStep, fail) -> bool:
     if unit not in allowed:
         fail("unit", f"{name} is measured in {' or '.join(allowed)}, not {unit}", step.unit.span)
         return False
-    if amount <= 0:
-        fail("range", f"the amount of {name} must be greater than 0", step.amount.span)
+    if not 0 < amount <= MAX_AMOUNT:
+        fail("range", f"the amount of {name} must be greater than 0 and at most {MAX_AMOUNT}", step.amount.span)
         return False
     if unit in WHOLE_UNITS and amount != int(amount):
         fail("range", f"{name} must be a whole number of {unit}, not {step.amount.text}", step.amount.span)
@@ -113,67 +115,96 @@ def _check_duration(step: TimedStep, fail) -> None:
 class _OrderChecker:
     """A state machine over the dish's stages.
 
-    State is (stage index, whether that stage's cook step has run). An ADD after cooking opens the next
-    stage. The same cook verb repeated right after itself continues the current stage.
+    State is the current stage index and whether its cook step has run. An ADD after cooking opens the
+    next stage, and the same cook verb repeated right after itself continues the current stage.
+
+    Each mistake is reported once. After an error the checker records what the step implies (an early
+    ingredient counts toward its own stage, an early cook step marks its stage done) so later correct
+    steps are not blamed for it.
     """
 
     def __init__(self, dish: str, stages: tuple[Stage, ...], fail):
         self.dish, self.stages, self.fail = dish, stages, fail
-        self.pos, self.cooked, self.added = 0, False, set()
+        self.pos, self.cooked = 0, False
+        self.added: set[str] = set()
+        self.accounted: set[int] = set()  # stages already reported, or cooked out of order
+        self.missing_reported: set[str] = set()
+        self.unclear_adds: set[int] = set()  # stages with a misspelled ingredient
 
-    def next_stage(self) -> None:
-        self.pos, self.cooked, self.added = self.pos + 1, False, set()
+    def stage_of(self, name: str) -> int:
+        return next(i for i, stage in enumerate(self.stages) if name in stage.adds)
+
+    def next_pos(self) -> int:
+        return self.pos + 1 if self.cooked else self.pos
+
+    def enter(self, index: int) -> None:
+        if index != self.pos:
+            self.pos, self.cooked = index, False
 
     def cook_name(self, index: int) -> str:
         verb = self.stages[index].cook
         same = [i for i, stage in enumerate(self.stages) if stage.cook == verb]
         if len(same) == 1:
             return verb
-        return f"the {('first', 'second', 'third')[same.index(index)]} {verb}"
+        nth = same.index(index)
+        ordinal = ("first", "second", "third")[nth] if nth < 3 else f"{nth + 1}th"
+        return f"the {ordinal} {verb}"
+
+    def unknown_add(self) -> None:
+        """An ADD of a misspelled ingredient. Don't also report that its stage is missing that ingredient."""
+        self.enter(self.next_pos())
+        self.unclear_adds.add(self.pos)
 
     def add(self, step: AddStep) -> None:
         name = step.ingredient.text
-        if self.cooked:
-            self.next_stage()
+        self.enter(self.next_pos())
+        self.added.add(name)
         if self.pos >= len(self.stages):
             self.fail("order", f"{name} is added after the last cooking step, only SERVE can come now", step.span)
             return
-        if name in self.stages[self.pos].adds:
-            self.added.add(name)
-            return
-        home = next(i for i, stage in enumerate(self.stages) if name in stage.adds)
-        if home < self.pos:
-            self.fail("order", f"{name} comes too late, {self.dish} adds it before {self.cook_name(home)}", step.span)
-        else:
+        home = self.stage_of(name)
+        if home > self.pos:
             self.fail("order", f"{name} comes too early, {self.dish} adds it after {self.cook_name(home - 1)}", step.span)
+        elif home < self.pos and name not in self.missing_reported:
+            self.fail("order", f"{name} comes too late, {self.dish} adds it before {self.cook_name(home)}", step.span)
 
     def cook(self, step: TimedStep) -> None:
-        if self.cooked and step.verb == self.stages[self.pos].cook:
+        verb = step.verb
+        if self.cooked and self.pos < len(self.stages) and verb == self.stages[self.pos].cook:
             return
-        if self.cooked:
-            self.next_stage()
-        if self.pos >= len(self.stages):
+        target = self.next_pos()
+        if target >= len(self.stages):
             self.fail("order", f"{self.dish} needs no more cooking after {self.cook_name(len(self.stages) - 1)}, SERVE it", step.span)
             return
-        stage = self.stages[self.pos]
-        if step.verb != stage.cook:
-            later = any(s.cook == step.verb for s in self.stages[self.pos + 1:])
-            reason = f"{self.dish} must {self.cook_name(self.pos)} first" if later else f"the next step for {self.dish} is {stage.cook}"
-            self.fail("order", f"{step.verb} on line {step.span.line} is out of order, {reason}", step.span)
+        if verb == self.stages[target].cook:
+            self.enter(target)
+            self.check_ingredients(step, target)
+            self.cooked = True
             return
-        missing = sorted(stage.adds - self.added)
-        if missing:
-            self.fail("order", f"{step.verb} on line {step.span.line} needs {', '.join(missing)} added first", step.span)
-        self.cooked = True
+
+        later = next((i for i in range(target + 1, len(self.stages)) if self.stages[i].cook == verb), None)
+        if later is None:
+            uses = any(stage.cook == verb for stage in self.stages)
+            reason = "comes too late" if uses else f"is not a step of {self.dish}"
+            self.fail("order", f"{verb} {reason}, the next cooking step is {self.cook_name(target)}", step.span)
+            return
+        self.fail("order", f"{verb} comes too early, {self.dish} must {self.cook_name(target)} first", step.span)
+        self.accounted.update(range(target, later + 1))
+
+    def check_ingredients(self, step: TimedStep, index: int) -> None:
+        missing = sorted(self.stages[index].adds - self.added)
+        if missing and index not in self.unclear_adds:
+            self.fail("order", f"{step.verb} needs {', '.join(missing)} added first", step.span)
+            self.missing_reported.update(missing)
 
     def serve(self, step: ServeStep) -> None:
-        first_left = self.pos + 1 if self.cooked else self.pos
-        left = [self.cook_name(i) for i in range(first_left, len(self.stages))]
+        left = [self.cook_name(i) for i in range(self.next_pos(), len(self.stages)) if i not in self.accounted]
         if left:
             self.fail("order", f"{self.dish} is served before {', '.join(left)}", step.span)
 
 
 def _symbol(name: str, used: list[tuple[float, str]], first_line: int) -> dict:
+    """Total in the unit the recipe used, or in the base unit when it mixed units."""
     units = {unit for _, unit in used}
     if len(units) == 1:
         unit = units.pop()

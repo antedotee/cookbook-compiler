@@ -26,9 +26,9 @@ const Blocks = (() => {
         type: 'add',
         message0: 'ADD %1 %2 of %3',
         args0: [
-          { type: 'field_number', name: 'AMOUNT', value: 1, min: 0 },
+          { type: 'field_number', name: 'AMOUNT', value: 1, min: 0, max: vocab.max_amount, precision: 0.01 },
           { type: 'field_dropdown', name: 'UNIT', options: options(vocab.units) },
-          { type: 'field_dropdown', name: 'INGREDIENT', options: options(Object.keys(vocab.ingredients)) },
+          { type: 'field_dropdown', name: 'INGREDIENT', options: options(vocab.ingredients) },
         ],
         previousStatement: null,
         nextStatement: null,
@@ -40,7 +40,7 @@ const Blocks = (() => {
         message0: '%1 for %2 minutes',
         args0: [
           { type: 'field_dropdown', name: 'VERB', options: options(vocab.cook_verbs) },
-          { type: 'field_number', name: 'MINUTES', value: 1, min: 0 },
+          { type: 'field_number', name: 'MINUTES', value: 1, min: vocab.min_minutes, max: vocab.max_minutes, precision: 0.5 },
         ],
         previousStatement: null,
         nextStatement: null,

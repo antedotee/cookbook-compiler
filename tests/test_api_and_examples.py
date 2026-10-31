@@ -31,8 +31,9 @@ def test_any_input_gets_six_phases(client):
     assert [p["status"] for p in body["phases"]] == ["ok", "error"] + ["skipped"] * 4
 
 
-def test_bad_request(client):
-    assert client.post("/api/compile", json={"nope": 1}).status_code == 400
+@pytest.mark.parametrize("body", [{"nope": 1}, ["x"], "text", 5])
+def test_bad_request(client, body):
+    assert client.post("/api/compile", json=body).status_code == 400
 
 
 def test_vocab_matches_kitchen(client):

@@ -19,14 +19,20 @@
   }
 
   async function compile() {
-    const response = await fetch('/api/compile', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source: Editor.text }),
-    });
-    const body = await response.json();
-    if (!response.ok) {
-      panel.replaceChildren(el('div', { class: 'error-box' }, body.error));
+    let body;
+    try {
+      const response = await fetch('/api/compile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: Editor.text }),
+      });
+      const isJson = (response.headers.get('content-type') || '').includes('application/json');
+      body = isJson ? await response.json() : { error: `The server answered ${response.status}. Check the terminal running app.py.` };
+      if (!response.ok) throw new Error(body.error);
+    } catch (error) {
+      result = null;
+      renderEmptyTabs();
+      panel.replaceChildren(el('div', { class: 'error-box' }, error.message || 'Could not reach the server. Is app.py running?'));
       return;
     }
     result = body;
