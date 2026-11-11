@@ -42,7 +42,8 @@ const Phases = (() => {
     semantic: (out) => el('div', {},
       el('h3', {}, 'Rule checklist'),
       el('ul', { class: 'checks' }, out.checks.map((c) =>
-        el('li', { class: c.ok ? 'ok' : 'fail' }, el('span', { class: 'mark' }, c.ok ? '✓' : '✗'), c.message))),
+        el('li', { class: c.ok === null ? 'unchecked' : c.ok ? 'ok' : 'fail' },
+          el('span', { class: 'mark' }, c.ok === null ? '–' : c.ok ? '✓' : '✗'), c.message))),
       el('h3', {}, 'Symbol table'),
       table(['Name', 'Kind', 'Unit', 'Total', 'First line'],
         out.symbols.map((s) => [s.name, s.kind, s.unit, s.total, s.first_line]))),
@@ -78,8 +79,11 @@ const Phases = (() => {
   function show(phase, failed) {
     const parts = [el('h2', {}, phase.title), el('p', { class: 'about' }, ABOUT[phase.id])];
     if (phase.status === 'error') {
+      const LIMIT = 20;
+      const shown = phase.errors.slice(0, LIMIT);
       parts.push(el('div', { class: 'error-box' },
-        phase.errors.map((e) => el('p', {}, el('b', {}, `Line ${e.line}, column ${e.col}: `), e.message)),
+        shown.map((e) => el('p', {}, el('b', {}, `Line ${e.line}, column ${e.col}: `), e.message)),
+        phase.errors.length > LIMIT && el('p', {}, `...and ${phase.errors.length - LIMIT} more`),
         FIX[phase.id] && el('p', { class: 'fix' }, FIX[phase.id])));
     }
     if (phase.status === 'skipped') {

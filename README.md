@@ -12,12 +12,12 @@ SERVE;
 
 ## Run it
 
-You need Python 3.10 or newer. No internet is needed after the first install, because Blockly is included in `static/vendor/blockly`.
+You need Python 3.9 or newer. No internet is needed after the first install, because Blockly is included in `static/vendor/blockly`.
 
 - macOS or Linux: `./run.sh`
 - Windows: double-click `run.bat`
 
-Each script creates a `.venv` folder on the first run, installs Flask, starts the server, and opens http://127.0.0.1:8000. Press Ctrl+C in the terminal to stop it.
+Each script creates a `.venv` folder on the first run (and rebuilds it if it is broken), installs Flask, starts the server, and opens http://127.0.0.1:8000. Press Ctrl+C in the terminal to stop it. If port 8000 is taken, run `PORT=8001 ./run.sh`.
 
 To run it by hand instead: `python3 -m venv .venv`, `.venv/bin/pip install -r requirements.txt`, then `.venv/bin/python app.py`.
 
@@ -52,7 +52,8 @@ Keywords are not case-sensitive. A `#` starts a comment that runs to the end of 
 | Dishes | CAKE, PASTA, TEA |
 | Ingredients | FLOUR, SUGAR, EGG, MILK, WATER, SALT, PASTA, TEA_LEAVES |
 | Amount units | CUP, SPOON, PIECE (1 CUP = 16 SPOON) |
-| Time unit | MINUTES, from 1 to 180 |
+| Time unit | MINUTES, from 1 to 180 per step |
+| Amounts | greater than 0, at most 1000 per step, at most 2 decimal places |
 
 EGG is counted in whole PIECEs. Every other ingredient takes CUP or SPOON.
 
@@ -69,13 +70,15 @@ Each dish has a fixed order. Ingredients within one group can come in any order,
 | Phase | File | Output | Example error |
 |---|---|---|---|
 | 1. Lexical analysis | `compiler/lexer.py` | token table with each token's class | `unexpected character '@'` |
-| 2. Syntax analysis | `compiler/parser.py` | parse tree | `expected ';' after the BOIL step on line 4` |
+| 2. Syntax analysis | `compiler/parser.py` | parse tree | `expected ';' after the BOIL step, but found 'ADD'` |
 | 3. Semantic analysis | `compiler/semantic.py` | rule checklist and symbol table | `EGG is measured in PIECE, not CUP` |
 | 4. Intermediate code | `compiler/ir.py` | `t1 = add FLOUR, 1 CUP` | |
 | 5. Optimization | `compiler/optimizer.py` | before, after, and a note per change | |
 | 6. Target code | `compiler/codegen.py` | `PUT FLOUR, 32`, `MIX 120`, `HALT` | |
 
 Phases 1 and 2 stop at the first error. Phase 3 reports every problem it finds. When a phase fails, the later phases are skipped.
+
+The order check in `compiler/order.py` treats each dish's order as a small automaton. When a recipe breaks the order, it finds the fewest edits that fix it (remove, insert, replace, or swap two neighbouring steps) and reports one error per edit. This is minimum-distance error recovery, so one mistake gives one error and later correct steps are not blamed for it.
 
 The optimizer runs three passes in order. It converts amounts to base units (CUP to SPOON), merges back-to-back ADDs of the same ingredient, and merges back-to-back runs of the same cooking step. Steps that are not next to each other never merge, so PASTA keeps both of its BOILs.
 
@@ -87,6 +90,7 @@ All cooking knowledge lives in `compiler/kitchen.py`. To add a dish or an ingred
 
 - `app.py` is the Flask server. It serves the page and `/api/compile`, `/api/vocab`, and `/api/examples`.
 - `compiler/pipeline.py` runs the six phases and builds the JSON the page shows.
+- `compiler/order.py` checks the dish order and explains each ordering mistake once.
 - `compiler/model.py` holds the tokens, syntax tree nodes, and intermediate instructions passed between phases.
 - `examples/` holds three valid recipes and one broken recipe for each of phases 1, 2, and 3.
 - `static/` is the page. `blocks.js` defines the blocks and the generator that turns them into text. `phases.js` and `tree.js` draw each phase.

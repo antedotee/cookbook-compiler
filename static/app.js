@@ -12,6 +12,7 @@
   let result = null;
   let current = 0;
   let editedByHand = false;
+  let latestRequest = 0;
 
   function setEditedByHand(value) {
     editedByHand = value;
@@ -19,24 +20,42 @@
   }
 
   async function compile() {
+    const request = ++latestRequest;
+    const source = Editor.text;
     let body;
     try {
       const response = await fetch('/api/compile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: Editor.text }),
+        body: JSON.stringify({ source }),
       });
       const isJson = (response.headers.get('content-type') || '').includes('application/json');
       body = isJson ? await response.json() : { error: `The server answered ${response.status}. Check the terminal running app.py.` };
       if (!response.ok) throw new Error(body.error);
     } catch (error) {
-      result = null;
-      renderEmptyTabs();
+      if (request !== latestRequest) return;
+      clearResult();
       panel.replaceChildren(el('div', { class: 'error-box' }, error.message || 'Could not reach the server. Is app.py running?'));
       return;
     }
+    if (request !== latestRequest || source !== Editor.text) return;
     result = body;
     show(0);
+  }
+
+  // The result belongs to the text it was compiled from. Once the text changes it is out of date.
+  function clearResult(message) {
+    result = null;
+    renderEmptyTabs();
+    Editor.highlight([], []);
+    counter.textContent = '';
+    back.disabled = next.disabled = true;
+    panel.replaceChildren(el('p', { class: 'hint' }, message || ''));
+  }
+
+  function textChanged() {
+    latestRequest++;
+    if (result) clearResult('The recipe changed. Press Compile to run the phases again.');
   }
 
   function show(index) {
@@ -70,22 +89,35 @@
       const chosen = list.find((e) => e.id === examples.value);
       if (!chosen) return;
       Editor.setText(chosen.source);
+      textChanged();
       setEditedByHand(true);
+      examples.value = '';
       compile();
     });
   }
 
   async function start() {
     renderEmptyTabs();
-    const vocab = await (await fetch('/api/vocab')).json();
+    let vocab;
+    try {
+      vocab = await (await fetch('/api/vocab')).json();
+    } catch (error) {
+      panel.replaceChildren(el('div', { class: 'error-box' }, 'Could not reach the server. Start it with run.sh or run.bat.'));
+      return;
+    }
     Editor.setText(Blocks.init(vocab, (text) => {
-      if (!editedByHand) Editor.setText(text);
+      if (editedByHand || text === Editor.text) return;
+      Editor.setText(text);
+      textChanged();
     }));
-    Editor.onInput(() => setEditedByHand(true));
+    Editor.onInput(() => {
+      setEditedByHand(true);
+      textChanged();
+    });
     document.getElementById('reset-from-blocks').addEventListener('click', () => {
       Editor.setText(Blocks.text());
+      textChanged();
       setEditedByHand(false);
-      examples.value = '';
     });
     document.getElementById('compile').addEventListener('click', compile);
     back.addEventListener('click', () => result && show(current - 1));

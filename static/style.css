@@ -49,7 +49,8 @@ button.primary:hover { background: #9a3412; }
 }
 .topbar h1 { font-size: 17px; margin: 0 auto 0 0; }
 .examples { color: var(--muted); display: flex; align-items: center; gap: 8px; }
-.examples select { font: inherit; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); }
+.examples { min-width: 0; }
+.examples select { font: inherit; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); max-width: 100%; min-width: 0; }
 
 .layout {
   flex: 1;
@@ -110,7 +111,7 @@ button.primary:hover { background: #9a3412; }
   overflow: auto;
 }
 .backdrop { color: transparent; pointer-events: none; overflow: hidden; }
-.backdrop .line { margin: 0 -10px; padding: 0 10px; }
+.backdrop .line { margin: 0 -10px; padding: 0 10px; width: max-content; min-width: calc(100% + 20px); }
 .backdrop .line.active { background: var(--active-bg); }
 .backdrop .line.error { background: var(--err-bg); }
 .backdrop mark { background: transparent; border-bottom: 2px solid var(--err); color: transparent; }
@@ -177,6 +178,7 @@ ol.code.after li { color: var(--ok); }
 .checks .mark { display: inline-block; width: 1.6em; font-weight: 700; }
 .checks .ok .mark { color: var(--ok); }
 .checks .fail { color: var(--err); }
+.checks .unchecked { color: var(--muted); }
 
 pre.asm { margin: 0; font: 13px/22px var(--mono); }
 
@@ -187,4 +189,14 @@ pre.asm { margin: 0; font: 13px/22px var(--mono); }
 .tree text { font: 12px var(--mono); fill: var(--ink); }
 
 .stepper { display: flex; justify-content: space-between; align-items: center; }
+
+@media (max-width: 900px) {
+  body { height: auto; }
+  .layout { grid-template-columns: 1fr; }
+  .blockly { height: 360px; flex: none; }
+  .editor { height: 260px; flex: none; }
+  .panel { min-height: 420px; }
+  .tabs { grid-template-columns: repeat(3, 1fr); }
+  .topbar { flex-wrap: wrap; }
+}
 .stepper span { color: var(--muted); }

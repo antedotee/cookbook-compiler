@@ -26,7 +26,7 @@ const Blocks = (() => {
         type: 'add',
         message0: 'ADD %1 %2 of %3',
         args0: [
-          { type: 'field_number', name: 'AMOUNT', value: 1, min: 0, max: vocab.max_amount, precision: 0.01 },
+          { type: 'field_number', name: 'AMOUNT', value: 1, min: 0.01, max: vocab.max_amount, precision: 0.01 },
           { type: 'field_dropdown', name: 'UNIT', options: options(vocab.units) },
           { type: 'field_dropdown', name: 'INGREDIENT', options: options(vocab.ingredients) },
         ],

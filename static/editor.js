@@ -11,15 +11,32 @@ const Editor = (() => {
     backdrop.replaceChildren(...lines.map((text, i) => {
       const number = i + 1;
       const cls = errorLines.has(number) ? 'line error' : marks.lines.has(number) ? 'line active' : 'line';
-      const error = marks.errors.find((e) => e.line === number);
-      if (!error) return el('div', { class: cls }, text || ' ');
-      const start = Math.max(0, error.col - 1);
-      const end = start + Math.max(1, error.length);
-      const padded = text.padEnd(end, ' ');
-      return el('div', { class: cls }, padded.slice(0, start), el('mark', {}, padded.slice(start, end)), padded.slice(end));
+      const ranges = merge(marks.errors.filter((e) => e.line === number)
+        .map((e) => [Math.max(0, e.col - 1), Math.max(0, e.col - 1) + Math.max(1, e.length)]));
+      if (!ranges.length) return el('div', { class: cls }, text || ' ');
+      const padded = text.padEnd(ranges[ranges.length - 1][1], ' ');
+      const parts = [];
+      let at = 0;
+      for (const [start, end] of ranges) {
+        parts.push(padded.slice(at, start), el('mark', {}, padded.slice(start, end)));
+        at = end;
+      }
+      parts.push(padded.slice(at));
+      return el('div', { class: cls }, parts);
     }));
     gutter.replaceChildren(...lines.map((_, i) => el('div', {}, i + 1)));
     syncScroll();
+  }
+
+  function merge(ranges) {
+    ranges.sort((a, b) => a[0] - b[0]);
+    const out = [];
+    for (const range of ranges) {
+      const last = out[out.length - 1];
+      if (last && range[0] <= last[1]) last[1] = Math.max(last[1], range[1]);
+      else out.push([...range]);
+    }
+    return out;
   }
 
   function syncScroll() {

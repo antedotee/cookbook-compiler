@@ -1,5 +1,7 @@
 """Local web server for the Digital Cookbook Compiler. Run: python app.py, then open http://127.0.0.1:8000"""
 
+import os
+import socket
 import sys
 import threading
 import webbrowser
@@ -15,6 +17,7 @@ EXAMPLES = ROOT / "examples"
 MAX_SOURCE = 20_000
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
+app.config["MAX_CONTENT_LENGTH"] = 200_000
 
 
 @app.get("/")
@@ -31,7 +34,7 @@ def get_vocab():
 def get_examples():
     examples = []
     for path in sorted(EXAMPLES.glob("*.ck")):
-        source = path.read_text()
+        source = path.read_text(encoding="utf-8")
         first = source.splitlines()[0] if source else ""
         title = first.lstrip("# ").strip() if first.startswith("#") else path.stem
         examples.append({"id": path.stem, "title": title, "source": source})
@@ -49,9 +52,17 @@ def post_compile():
     return jsonify(compile_recipe(source))
 
 
-if __name__ == "__main__":
-    url = "http://127.0.0.1:8000"
+def main() -> None:
+    port = int(os.environ.get("PORT", "8000"))
+    url = f"http://127.0.0.1:{port}"
+    with socket.socket() as probe:
+        if probe.connect_ex(("127.0.0.1", port)) == 0:
+            sys.exit(f"Port {port} is already in use. Close the other program, or run with PORT=8001.")
     if "--open" in sys.argv:
         threading.Timer(1.0, webbrowser.open, [url]).start()
     print(f"Digital Cookbook Compiler running at {url}  (Ctrl+C to stop)")
-    app.run(host="127.0.0.1", port=8000, debug=False)
+    app.run(host="127.0.0.1", port=port, debug=False)
+
+
+if __name__ == "__main__":
+    main()
