@@ -6,24 +6,27 @@
     HALT
 """
 
+from __future__ import annotations
+
 from .model import IRInstr, fmt_lines, fmt_number
 
 COLUMN = 18
 
 
 def generate(code: list[IRInstr]) -> list[dict]:
-    asm = []
+    lines = []
     for instr in code:
         if instr.op == "add":
             text = f"PUT {instr.ingredient}, {fmt_number(instr.amount)}"
         elif instr.op == "serve":
             text = "SERVE"
         else:
-            text = f"{instr.op.upper()} {round(instr.amount * 60)}"
-        asm.append(_line(text, instr.lines))
-    asm.append(_line("HALT", code[-1].lines if code else (1,)))
-    return asm
+            text = f"{instr.op.upper()} {fmt_number(instr.amount * 60)}"
+        lines.append((text, instr.lines))
+    lines.append(("HALT", code[-1].lines if code else (1,)))
+    width = max(COLUMN, *(len(text) + 1 for text, _ in lines))
+    return [_line(text, source, width) for text, source in lines]
 
 
-def _line(text: str, lines: tuple[int, ...]) -> dict:
-    return {"text": f"{text:<{COLUMN}}; {fmt_lines(lines)}", "lines": sorted(set(lines))}
+def _line(text: str, lines: tuple[int, ...], width: int) -> dict:
+    return {"text": f"{text:<{width}}; {fmt_lines(lines)}", "lines": sorted(set(lines))}

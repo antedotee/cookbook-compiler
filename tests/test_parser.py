@@ -36,7 +36,7 @@ def test_tree_has_header_and_steps():
 def test_missing_semicolon_points_at_the_line_that_needs_it():
     source = "RECIPE TEA;\nADD(1, CUP, WATER)\nBOIL(2, MINUTES);\nSERVE;"
     phase = phases(source)["parser"]
-    assert phase["errors"][0]["message"] == "expected ';' after the ADD step on line 2, but found 'BOIL'"
+    assert phase["errors"][0]["message"] == "expected ';' after the ADD step, but found 'BOIL'"
     assert phase["errors"][0]["line"] == 2
 
 
@@ -65,3 +65,16 @@ def test_missing_header():
 
 def test_serve_takes_no_arguments():
     assert errors("RECIPE TEA; SERVE();", "parser") == ["SERVE takes no arguments, write 'SERVE;'"]
+
+
+def test_empty_recipe():
+    assert errors("# nothing yet\n", "parser") == ["the recipe is empty, start with 'RECIPE <dish>;'"]
+
+
+def test_keyword_in_argument_is_named():
+    assert errors("RECIPE CAKE; ADD(2, CUP, MIX);", "parser") == ["'MIX' is a keyword and cannot be a value in ADD(...)"]
+
+
+def test_unclosed_step_at_end_points_after_last_token():
+    error = phases("RECIPE CAKE;\nADD(1, CUP, FLOUR\n\n\n")["parser"]["errors"][0]
+    assert (error["line"], error["col"]) == (2, 18)

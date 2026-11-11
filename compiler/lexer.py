@@ -8,10 +8,15 @@
 The end of input is marked with an EOF token.
 """
 
+from __future__ import annotations
+
+import unicodedata
+
 from .model import CompileError, Span, Token
 
 KEYWORDS = {"RECIPE", "ADD", "MIX", "BOIL", "BAKE", "SERVE"}
 PUNCTUATORS = {"(", ")", ",", ";"}
+LINE_BREAKS = {"\n", "\r", "\u2028", "\u2029", "\x85"}
 
 
 def lex(source: str) -> list[Token]:
@@ -21,7 +26,10 @@ def lex(source: str) -> list[Token]:
     while i < len(source):
         ch = source[i]
 
-        if ch == "\n":
+        if ch == "\r" and source[i + 1:i + 2] == "\n":
+            i += 1
+            continue
+        if ch in LINE_BREAKS:
             line, col, i = line + 1, 1, i + 1
             continue
         if ch.isspace():
@@ -46,11 +54,18 @@ def lex(source: str) -> list[Token]:
             kind = "KEYWORD" if text in KEYWORDS else "IDENTIFIER"
             tokens.append(Token(kind, text, Span(line, col, i - start)))
         else:
-            raise CompileError(f"unexpected character '{ch}'", Span(line, col, 1))
+            raise CompileError(f"unexpected character {_show(ch)}", Span(line, col, 1))
         col += i - start
 
     tokens.append(Token("EOF", "", Span(line, col, 0)))
     return tokens
+
+
+def _show(ch: str) -> str:
+    """Quote a printable character. Name an invisible one, such as a zero-width space pasted from a document."""
+    if ch.isprintable() and not ch.isspace():
+        return f"'{ch}'"
+    return f"U+{ord(ch):04X} ({unicodedata.name(ch, 'unnamed character').lower()})"
 
 
 # ASCII only: str.isdigit() and str.isalpha() also accept characters like '²' and 'ſ'.

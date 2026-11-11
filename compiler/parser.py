@@ -6,6 +6,8 @@
            | "SERVE" ;
 """
 
+from __future__ import annotations
+
 from .model import AddStep, CompileError, Name, Number, Recipe, ServeStep, Span, Step, TimedStep, Token
 
 STEP_VERBS = ("ADD", "MIX", "BOIL", "BAKE", "SERVE")
@@ -42,11 +44,13 @@ class _Parser:
     def expect(self, kind: str, message: str, text: str | None = None) -> Token:
         token = self.peek()
         if token.kind != kind or (text is not None and token.text != text):
-            raise CompileError(f"{message}, but found {_describe(token)}", token.span)
+            raise CompileError(f"{message}, but found {_describe(token)}", self.where(token))
         return self.advance()
 
     def recipe(self) -> Recipe:
         first = self.peek()
+        if first.kind == "EOF":
+            raise CompileError("the recipe is empty, start with 'RECIPE <dish>;'", first.span)
         if not (first.kind == "KEYWORD" and first.text == "RECIPE"):
             raise CompileError(f"a recipe must start with 'RECIPE <dish>;', but found {_describe(first)}", first.span)
         self.advance()
@@ -60,6 +64,13 @@ class _Parser:
             self.expect_semicolon(f"the {_verb_of(step)} step")
         return Recipe(Name(dish.text, dish.span), steps, first.span)
 
+    def where(self, token: Token) -> Span:
+        """At the end of input, point just after the last real token instead of at an empty last line."""
+        if token.kind != "EOF" or self.pos == 0:
+            return token.span
+        last = self.tokens[self.pos - 1]
+        return Span(last.span.line, last.span.col + last.span.length, 1)
+
     def expect_semicolon(self, after: str) -> None:
         """Report a missing ';' at the end of the previous token, where the user has to type it."""
         if self.at(";"):
@@ -67,7 +78,7 @@ class _Parser:
             return
         last = self.tokens[self.pos - 1]
         raise CompileError(
-            f"expected ';' after {after} on line {last.span.line}, but found {_describe(self.peek())}",
+            f"expected ';' after {after}, but found {_describe(self.peek())}",
             Span(last.span.line, last.span.col + last.span.length, 1),
         )
 
@@ -101,15 +112,18 @@ class _Parser:
         if not self.at(")"):
             while True:
                 token = self.peek()
+                if token.kind == "KEYWORD":
+                    raise CompileError(f"'{token.text}' is a keyword and cannot be a value in {verb.text}(...)", token.span)
                 if token.kind not in ("CONSTANT", "IDENTIFIER"):
-                    raise CompileError(f"expected a value in {verb.text}(...), but found {_describe(token)}", token.span)
+                    raise CompileError(f"expected a value in {verb.text}(...), but found {_describe(token)}", self.where(token))
                 found.append(self.advance())
                 if self.at(","):
                     self.advance()
                     continue
                 if self.at(")"):
                     break
-                raise CompileError(f"expected ',' or ')' in {verb.text}(...), but found {_describe(self.peek())}", self.peek().span)
+                raise CompileError(f"expected ',' or ')' in {verb.text}(...), but found {_describe(self.peek())}",
+                                   self.where(self.peek()))
         close = self.advance()
 
         if len(found) != len(names):

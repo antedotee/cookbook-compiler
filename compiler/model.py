@@ -1,6 +1,9 @@
 """Data passed between compiler phases."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
+from typing import Union
 
 
 @dataclass(frozen=True)
@@ -70,7 +73,7 @@ class ServeStep:
     span: Span
 
 
-Step = AddStep | TimedStep | ServeStep
+Step = Union[AddStep, TimedStep, ServeStep]
 
 
 @dataclass(frozen=True)
@@ -92,7 +95,8 @@ class IRInstr:
 
 
 def fmt_number(value: float) -> str:
-    return str(int(value)) if value == int(value) else f"{value:g}"
+    """Plain decimal with no exponent. Rounding to 6 places hides float noise such as 0.30000000000000004."""
+    return f"{round(value, 6):.6f}".rstrip("0").rstrip(".")
 
 
 def fmt_lines(lines: tuple[int, ...]) -> str:

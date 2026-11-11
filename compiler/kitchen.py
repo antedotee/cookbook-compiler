@@ -1,5 +1,7 @@
 """Everything the compiler knows about cooking. No other module hard-codes a dish, ingredient, or unit."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 # Allowed amount units for each ingredient.
@@ -23,6 +25,7 @@ UNITS: dict[str, tuple[str, int]] = {
 
 WHOLE_UNITS = {"PIECE"}
 MAX_AMOUNT = 1000
+MAX_DECIMALS = 2
 
 COOK_VERBS = ("MIX", "BOIL", "BAKE")
 DURATION_UNIT = "MINUTES"

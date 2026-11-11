@@ -1,5 +1,7 @@
 """Phase 4: intermediate code. One simple instruction per step, still in the units the cook wrote."""
 
+from __future__ import annotations
+
 from .model import AddStep, IRInstr, Recipe, TimedStep, fmt_number
 
 

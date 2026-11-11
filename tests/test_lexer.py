@@ -67,3 +67,12 @@ def test_names_that_are_not_keywords_are_identifiers():
     assert kinds_and_text("RECIPE cake; add") == [
         ("KEYWORD", "RECIPE"), ("IDENTIFIER", "CAKE"), ("PUNCTUATOR", ";"), ("KEYWORD", "ADD"), ("EOF", ""),
     ]
+
+
+def test_lone_carriage_return_is_a_line_break():
+    assert [t.span.line for t in lex("RECIPE CAKE;\rSERVE;")][-2] == 2
+    assert [t.span.line for t in lex("RECIPE CAKE;\r\nSERVE;")][-2] == 2
+
+
+def test_invisible_characters_are_named():
+    assert errors("RECIPE CAKE;\u200b", "lexer") == ["unexpected character U+200B (zero width space)"]

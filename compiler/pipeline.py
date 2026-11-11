@@ -1,5 +1,7 @@
 """Runs the six phases in order and returns one JSON-ready result for the web page."""
 
+from __future__ import annotations
+
 from . import codegen, ir, optimizer
 from .lexer import lex
 from .model import CompileError, Diagnostic

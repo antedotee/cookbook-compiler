@@ -1,5 +1,7 @@
 """Phase 5: optimization. Three passes, run in order, each returning new code plus a note per change."""
 
+from __future__ import annotations
+
 from dataclasses import replace
 
 from .kitchen import UNITS
